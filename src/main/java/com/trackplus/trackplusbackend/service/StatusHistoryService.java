@@ -16,13 +16,18 @@ public class StatusHistoryService {
     private final ShipmentRepository shipmentRepository;
     private final StatusHistoryRepository statusHistoryRepository;
     private final ShipmentService shipmentService;
+    private final ShipmentWebSocketService shipmentWebSocketService;
 
-    public StatusHistoryService(ShipmentRepository shipmentRepository,
-                                StatusHistoryRepository statusHistoryRepository,
-                                ShipmentService shipmentService) {
+    public StatusHistoryService(
+            ShipmentRepository shipmentRepository,
+            StatusHistoryRepository statusHistoryRepository,
+            ShipmentService shipmentService,
+            ShipmentWebSocketService shipmentWebSocketService) {
+
         this.shipmentRepository = shipmentRepository;
         this.statusHistoryRepository = statusHistoryRepository;
         this.shipmentService = shipmentService;
+        this.shipmentWebSocketService = shipmentWebSocketService;
     }
 
     public StatusHistory updateShipmentStatus(
@@ -30,11 +35,11 @@ public class StatusHistoryService {
             StatusUpdateRequest request) {
 
         Shipment shipment = shipmentRepository.findById(shipmentId)
-                .orElseThrow(() -> new RuntimeException("Shipment not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Shipment not found"));
 
         shipment.setCurrentStatus(request.getStatus());
 
-        // Recalculate ETA after status change
         shipment.setEstimatedDeliveryAt(
                 shipmentService.calculateEta(
                         shipment,
@@ -42,7 +47,6 @@ public class StatusHistoryService {
                 )
         );
 
-        // If delivered, record actual delivery time
         if (request.getStatus().name().equals("DELIVERED")) {
             shipment.setActualDeliveryAt(LocalDateTime.now());
         }
@@ -56,10 +60,21 @@ public class StatusHistoryService {
         history.setNote(request.getNote());
         history.setShipment(shipment);
 
-        return statusHistoryRepository.save(history);
+        StatusHistory savedHistory =
+                statusHistoryRepository.save(history);
+
+        // Broadcast the updated shipment to connected clients
+        shipmentWebSocketService.broadcastShipmentUpdate(
+                shipment,
+                request.getNote()
+        );
+
+        return savedHistory;
     }
 
-    public List<StatusHistory> getShipmentHistory(Long shipmentId) {
+    public List<StatusHistory> getShipmentHistory(
+            Long shipmentId) {
+
         return statusHistoryRepository
                 .findByShipmentIdOrderByTimestampAsc(shipmentId);
     }

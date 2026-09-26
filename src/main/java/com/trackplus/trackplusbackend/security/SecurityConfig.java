@@ -44,6 +44,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/shipments/track/**")
                         .permitAll()
 
+                        // WebSocket connection
+                        .requestMatchers("/ws/**")
+                        .permitAll()
+
                         // Basic hello endpoint
                         .requestMatchers("/api/hello")
                         .permitAll()
