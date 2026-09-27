@@ -7,6 +7,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -18,96 +23,50 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
 
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // =========================
                         // PUBLIC APIs
-                        // =========================
+                        .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers("/api/shipments/track/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/api/hello").permitAll()
 
-                        // Login
-                        .requestMatchers("/api/auth/login")
-                        .permitAll()
-
-                        // Public shipment tracking
-                        .requestMatchers("/api/shipments/track/**")
-                        .permitAll()
-
-                        // WebSocket connection
-                        .requestMatchers("/ws/**")
-                        .permitAll()
-
-                        // Basic hello endpoint
-                        .requestMatchers("/api/hello")
-                        .permitAll()
-
-
-                        // =========================
                         // ADMIN APIs
-                        // =========================
-
-                        // User management
                         .requestMatchers("/api/users/**")
                         .hasAuthority("ROLE_ADMIN")
 
-                        // Create routes
                         .requestMatchers(HttpMethod.POST, "/api/routes")
                         .hasAuthority("ROLE_ADMIN")
 
-                        // Create shipments
                         .requestMatchers(HttpMethod.POST, "/api/shipments")
                         .hasAuthority("ROLE_ADMIN")
 
-
-                        // =========================
-                        // ADMIN + DRIVER APIs
-                        // =========================
-
-                        // View routes
+                        // ADMIN + DRIVER
                         .requestMatchers(HttpMethod.GET, "/api/routes")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_DRIVER")
 
-                        // View shipments
                         .requestMatchers(HttpMethod.GET, "/api/shipments")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_DRIVER")
 
-                        // View shipment history
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/shipments/*/history"
-                        )
+                        .requestMatchers(HttpMethod.GET, "/api/shipments/*/history")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_DRIVER")
 
-
-                        // =========================
-                        // DRIVER APIs
-                        // =========================
-
-                        // Driver updates shipment status
-                        .requestMatchers(
-                                HttpMethod.PUT,
-                                "/api/shipments/*/status"
-                        )
+                        // DRIVER
+                        .requestMatchers(HttpMethod.PUT, "/api/shipments/*/status")
                         .hasAuthority("ROLE_DRIVER")
 
-
-                        // =========================
-                        // EVERYTHING ELSE
-                        // =========================
-
-                        .anyRequest()
-                        .authenticated()
+                        .anyRequest().authenticated()
                 )
 
                 .addFilterBefore(
@@ -116,5 +75,32 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(
+                List.of("http://localhost:5173")
+        );
+
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
+        );
+
+        configuration.setAllowedHeaders(
+                List.of("*")
+        );
+
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
     }
 }
