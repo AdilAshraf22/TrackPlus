@@ -4,6 +4,7 @@ import com.trackplus.trackplusbackend.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -13,14 +14,17 @@ import java.util.Date;
 @Service
 public class JwtService {
 
-    private static final String SECRET_KEY =
-        "REDACTED_HISTORY_CLEANUP_SECRET_2026_123456789";
-
-    private final SecretKey key = Keys.hmacShaKeyFor(
-            SECRET_KEY.getBytes(StandardCharsets.UTF_8)
-    );
+    @Value("${jwt.secret}")
+    private String secretKey;
 
     private final long expirationTime = 1000 * 60 * 60; // 1 hour
+
+    private SecretKey getKey() {
+
+        return Keys.hmacShaKeyFor(
+                secretKey.getBytes(StandardCharsets.UTF_8)
+        );
+    }
 
     public String generateToken(User user) {
 
@@ -32,7 +36,7 @@ public class JwtService {
                 .expiration(
                         new Date(System.currentTimeMillis() + expirationTime)
                 )
-                .signWith(key)
+                .signWith(getKey())
                 .compact();
     }
 
@@ -59,7 +63,7 @@ public class JwtService {
     private Claims getClaims(String token) {
 
         return Jwts.parser()
-                .verifyWith(key)
+                .verifyWith(getKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

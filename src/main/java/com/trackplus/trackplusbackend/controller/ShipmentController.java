@@ -1,5 +1,6 @@
 package com.trackplus.trackplusbackend.controller;
 
+import com.trackplus.trackplusbackend.dto.PublicShipmentResponse;
 import com.trackplus.trackplusbackend.dto.ShipmentRequest;
 import com.trackplus.trackplusbackend.entity.Shipment;
 import com.trackplus.trackplusbackend.service.ShipmentService;
@@ -31,9 +32,20 @@ public class ShipmentController {
     }
 
     @GetMapping("/track/{trackingCode}")
-    public Shipment getShipmentByTrackingCode(
+    public PublicShipmentResponse getShipmentByTrackingCode(
             @PathVariable String trackingCode) {
 
-        return shipmentService.getShipmentByTrackingCode(trackingCode);
+        Shipment shipment =
+                shipmentService.getShipmentByTrackingCode(trackingCode);
+
+        return new PublicShipmentResponse(
+                shipment.getTrackingCode(),
+                shipment.getCurrentStatus(),
+                shipment.getCreatedAt(),
+                shipment.getEstimatedDeliveryAt(),
+                shipment.getRoute().getOrigin(),
+                shipment.getRoute().getDestination(),
+                shipment.getActualDeliveryAt()
+        );
     }
 }
